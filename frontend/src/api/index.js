@@ -144,7 +144,10 @@ export const statisticsApi = {
     if (startDate) params.startDate = startDate
     if (endDate) params.endDate = endDate
     return api.get('/statistics/dashboard', { params })
-  }
+  },
+  getBalanceSheet: (asOfDate) => api.get('/statistics/balance-sheet', { params: { asOfDate } }),
+  getIncomeStatement: (startDate, endDate) => api.get('/statistics/income-statement', { params: { startDate, endDate } }),
+  getCashFlow: (startDate, endDate) => api.get('/statistics/cash-flow', { params: { startDate, endDate } })
 }
 
 // 仓库相关API
