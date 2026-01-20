@@ -334,7 +334,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { statisticsApi } from '../api';
 
 export default {
   name: 'FinancialReports',
@@ -403,18 +403,18 @@ export default {
 
       try {
         // 并行加载三个报表
-        const [balanceResponse, incomeResponse, cashFlowResponse] = await Promise.all([
-          axios.get(`http://localhost:8080/api/statistics/balance-sheet?asOfDate=${this.endDate}`),
-          axios.get(`http://localhost:8080/api/statistics/income-statement?startDate=${this.startDate}&endDate=${this.endDate}`),
-          axios.get(`http://localhost:8080/api/statistics/cash-flow?startDate=${this.startDate}&endDate=${this.endDate}`)
+        const [balanceSheet, incomeStatement, cashFlow] = await Promise.all([
+          statisticsApi.getBalanceSheet(this.endDate),
+          statisticsApi.getIncomeStatement(this.startDate, this.endDate),
+          statisticsApi.getCashFlow(this.startDate, this.endDate)
         ]);
 
-        this.balanceSheet = balanceResponse.data;
-        this.incomeStatement = incomeResponse.data;
-        this.cashFlow = cashFlowResponse.data;
+        this.balanceSheet = balanceSheet;
+        this.incomeStatement = incomeStatement;
+        this.cashFlow = cashFlow;
       } catch (err) {
         console.error('加载财务报表失败:', err);
-        this.error = '加载财务报表失败，请稍后重试';
+        this.error = '加载财务报表失败: ' + (err.response?.data?.message || err.message || '请稍后重试');
       } finally {
         this.loading = false;
       }
