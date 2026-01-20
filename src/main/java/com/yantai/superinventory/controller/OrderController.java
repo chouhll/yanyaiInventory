@@ -54,6 +54,26 @@ public class OrderController {
         return orderService.updateStatus(id, status);
     }
     
+    /**
+     * 订单出库（发货）
+     * POST /api/orders/{id}/ship
+     * 验证库存并扣减库存，更新订单状态为已发货
+     */
+    @PostMapping("/{id}/ship")
+    public Order shipOrder(@PathVariable String id) {
+        return orderService.shipOrder(id);
+    }
+    
+    /**
+     * 检查订单库存是否充足
+     * GET /api/orders/{id}/check-stock
+     * 返回库存是否充足的状态
+     */
+    @GetMapping("/{id}/check-stock")
+    public boolean checkStockAvailability(@PathVariable String id) {
+        return orderService.checkStockAvailability(id);
+    }
+    
     @DeleteMapping("/{id}")
     public void delete(@PathVariable String id) {
         orderService.deleteById(id);

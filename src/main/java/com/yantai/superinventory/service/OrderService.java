@@ -41,38 +41,42 @@ public class OrderService {
             throw new RuntimeException("订单项不能为空");
         }
         
-        // 保存订单
         List<OrderItem> items = (List<OrderItem>) order.getItems();
-        items.forEach(item -> {
+        boolean hasStockShortage = false;
+        StringBuilder stockMessage = new StringBuilder();
+        
+        // 检查所有商品的库存
+        for (OrderItem item : items) {
             Product product = productRepository.findById(((Product) item.getProduct()).getId())
                 .orElseThrow(() -> new RuntimeException("商品不存在: " + ((Product) item.getProduct()).getId()));
             
-            // 检查库存
-            if (product.getStock() < item.getQuantity().intValue()) {
-                throw new RuntimeException("库存不足: " + product.getName());
+            Integer currentStock = product.getStock() != null ? product.getStock() : 0;
+            int requiredQty = item.getQuantity().intValue();
+            
+            // 检查库存是否充足
+            if (currentStock < requiredQty) {
+                hasStockShortage = true;
+                stockMessage.append(String.format("商品[%s]库存不足，当前库存：%d，需求数量：%d；",
+                    product.getName(), currentStock, requiredQty));
             }
             
             item.setOrder(order); // 确保订单项关联订单
-        });
+        }
         
-        order.setStatus(OrderStatus.PAID);
-        Order savedOrder = orderRepository.save(order);
-        
-        // 处理出库交易和库存扣减
-        items.forEach(item -> {
-            Product product = item.getProduct();
+        // 根据库存情况设置订单状态
+        if (hasStockShortage) {
+            // 库存不足，设置为待备货状态
+            order.setStatus(OrderStatus.PENDING_STOCK);
+            Order savedOrder = orderRepository.save(order);
             
-            // 记录出库交易（使用产品的当前价格作为成本单价）
-            inventoryService.recordOutboundTransaction(
-                product,
-                item.getQuantity(),
-                item.getCostUnitPrice() != null ? item.getCostUnitPrice() : product.getPrice(),
-                savedOrder.getId(),
-                null // 可以添加仓库信息
-            );
-        });
-        
-        return savedOrder;
+            // 抛出异常，提示库存不足（前端会捕获并显示）
+            throw new RuntimeException("订单已创建，但库存不足，状态为待备货。" + stockMessage.toString());
+        } else {
+            // 库存充足，设置为已付款状态（但不扣减库存）
+            order.setStatus(OrderStatus.PAID);
+            Order savedOrder = orderRepository.save(order);
+            return savedOrder;
+        }
     }
 
     @Transactional
@@ -103,6 +107,93 @@ public class OrderService {
             .orElseThrow(() -> new RuntimeException("订单不存在"));
         order.setStatus(status);
         return orderRepository.save(order);
+    }
+    
+    /**
+     * 订单出库（发货）
+     * 验证库存并扣减库存
+     */
+    @Transactional
+    public Order shipOrder(String orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("订单不存在"));
+        
+        // 检查订单状态，只有PAID或INVOICED状态才能出库
+        if (order.getStatus() != OrderStatus.PAID && 
+            order.getStatus() != OrderStatus.INVOICED &&
+            order.getStatus() != OrderStatus.PENDING_STOCK) {
+            throw new RuntimeException("订单状态不允许出库，当前状态：" + order.getStatus());
+        }
+        
+        List<OrderItem> items = (List<OrderItem>) order.getItems();
+        StringBuilder stockMessage = new StringBuilder();
+        boolean hasStockShortage = false;
+        
+        // 再次检查库存是否充足
+        for (OrderItem item : items) {
+            Product product = productRepository.findById(((Product) item.getProduct()).getId())
+                .orElseThrow(() -> new RuntimeException("商品不存在"));
+            
+            Integer currentStock = product.getStock() != null ? product.getStock() : 0;
+            int requiredQty = item.getQuantity().intValue();
+            
+            if (currentStock < requiredQty) {
+                hasStockShortage = true;
+                stockMessage.append(String.format("商品[%s]库存不足，当前库存：%d，需求数量：%d；",
+                    product.getName(), currentStock, requiredQty));
+            }
+        }
+        
+        // 如果库存不足，不允许出库
+        if (hasStockShortage) {
+            // 更新订单状态为待备货
+            order.setStatus(OrderStatus.PENDING_STOCK);
+            orderRepository.save(order);
+            throw new RuntimeException("库存不足，无法出库。" + stockMessage.toString());
+        }
+        
+        // 库存充足，执行出库操作
+        items.forEach(item -> {
+            Product product = productRepository.findById(((Product) item.getProduct()).getId())
+                .orElseThrow(() -> new RuntimeException("商品不存在"));
+            
+            // 记录出库交易并扣减库存
+            inventoryService.recordOutboundTransaction(
+                product,
+                item.getQuantity(),
+                item.getCostUnitPrice() != null ? item.getCostUnitPrice() : product.getPrice(),
+                order.getId(),
+                null // 可以添加仓库信息
+            );
+        });
+        
+        // 更新订单状态为已发货
+        order.setStatus(OrderStatus.SHIPPED);
+        return orderRepository.save(order);
+    }
+    
+    /**
+     * 检查订单库存是否充足
+     */
+    public boolean checkStockAvailability(String orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("订单不存在"));
+        
+        List<OrderItem> items = (List<OrderItem>) order.getItems();
+        
+        for (OrderItem item : items) {
+            Product product = productRepository.findById(((Product) item.getProduct()).getId())
+                .orElseThrow(() -> new RuntimeException("商品不存在"));
+            
+            Integer currentStock = product.getStock() != null ? product.getStock() : 0;
+            int requiredQty = item.getQuantity().intValue();
+            
+            if (currentStock < requiredQty) {
+                return false; // 有任何商品库存不足
+            }
+        }
+        
+        return true; // 所有商品库存充足
     }
     
     public void deleteById(String id) {
