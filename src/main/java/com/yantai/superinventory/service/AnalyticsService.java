@@ -38,10 +38,11 @@ public class AnalyticsService {
     public List<Map<String, Object>> getSalesTrend(LocalDateTime startDate, LocalDateTime endDate, String groupBy) {
         List<Order> orders = orderRepository.findAll().stream()
             .filter(order -> order.getOrderDate() != null)
-            .filter(order -> order.getOrderDate().isAfter(startDate) && order.getOrderDate().isBefore(endDate))
+            .filter(order -> !order.getOrderDate().isBefore(startDate) && !order.getOrderDate().isAfter(endDate))
             .filter(order -> order.getStatus() == OrderStatus.COMPLETED || 
                            order.getStatus() == OrderStatus.PAID || 
-                           order.getStatus() == OrderStatus.INVOICED)
+                           order.getStatus() == OrderStatus.INVOICED ||
+                           order.getStatus() == OrderStatus.SHIPPED)
             .collect(Collectors.toList());
 
         return groupAndCalculate(orders, groupBy, true);
@@ -53,7 +54,7 @@ public class AnalyticsService {
     public List<Map<String, Object>> getPurchaseTrend(LocalDateTime startDate, LocalDateTime endDate, String groupBy) {
         List<Purchase> purchases = purchaseRepository.findAll().stream()
             .filter(p -> p.getPurchaseDate() != null)
-            .filter(p -> p.getPurchaseDate().isAfter(startDate) && p.getPurchaseDate().isBefore(endDate))
+            .filter(p -> !p.getPurchaseDate().isBefore(startDate) && !p.getPurchaseDate().isAfter(endDate))
             .collect(Collectors.toList());
 
         return groupAndCalculatePurchases(purchases, groupBy);
@@ -131,10 +132,11 @@ public class AnalyticsService {
         // 销售分析
         List<Order> orders = orderRepository.findAll().stream()
             .filter(order -> order.getOrderDate() != null)
-            .filter(order -> order.getOrderDate().isAfter(startDate) && order.getOrderDate().isBefore(endDate))
+            .filter(order -> !order.getOrderDate().isBefore(startDate) && !order.getOrderDate().isAfter(endDate))
             .filter(order -> order.getStatus() == OrderStatus.COMPLETED || 
                            order.getStatus() == OrderStatus.PAID || 
-                           order.getStatus() == OrderStatus.INVOICED)
+                           order.getStatus() == OrderStatus.INVOICED ||
+                           order.getStatus() == OrderStatus.SHIPPED)
             .collect(Collectors.toList());
 
         BigDecimal totalSales = BigDecimal.ZERO;
@@ -150,7 +152,7 @@ public class AnalyticsService {
         // 采购分析
         List<Purchase> purchases = purchaseRepository.findAll().stream()
             .filter(p -> p.getPurchaseDate() != null)
-            .filter(p -> p.getPurchaseDate().isAfter(startDate) && p.getPurchaseDate().isBefore(endDate))
+            .filter(p -> !p.getPurchaseDate().isBefore(startDate) && !p.getPurchaseDate().isAfter(endDate))
             .collect(Collectors.toList());
 
         BigDecimal totalPurchase = purchases.stream()
@@ -219,10 +221,11 @@ public class AnalyticsService {
             // 销售数据
             List<Order> orders = orderRepository.findAll().stream()
                 .filter(order -> order.getOrderDate() != null)
-                .filter(order -> order.getOrderDate().isAfter(startDate) && order.getOrderDate().isBefore(endDate))
+                .filter(order -> !order.getOrderDate().isBefore(startDate) && !order.getOrderDate().isAfter(endDate))
                 .filter(order -> order.getStatus() == OrderStatus.COMPLETED || 
                                order.getStatus() == OrderStatus.PAID || 
-                               order.getStatus() == OrderStatus.INVOICED)
+                               order.getStatus() == OrderStatus.INVOICED ||
+                               order.getStatus() == OrderStatus.SHIPPED)
                 .collect(Collectors.toList());
 
             BigDecimal salesAmount = BigDecimal.ZERO;
@@ -237,7 +240,7 @@ public class AnalyticsService {
             // 采购数据
             BigDecimal purchaseAmount = purchaseRepository.findAll().stream()
                 .filter(p -> p.getPurchaseDate() != null)
-                .filter(p -> p.getPurchaseDate().isAfter(startDate) && p.getPurchaseDate().isBefore(endDate))
+                .filter(p -> !p.getPurchaseDate().isBefore(startDate) && !p.getPurchaseDate().isAfter(endDate))
                 .map(Purchase::getTotalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -313,10 +316,11 @@ public class AnalyticsService {
     private BigDecimal calculateProductSalesQuantity(Long productId, LocalDateTime startDate, LocalDateTime endDate) {
         List<Order> orders = orderRepository.findAll().stream()
             .filter(order -> order.getOrderDate() != null)
-            .filter(order -> order.getOrderDate().isAfter(startDate) && order.getOrderDate().isBefore(endDate))
+            .filter(order -> !order.getOrderDate().isBefore(startDate) && !order.getOrderDate().isAfter(endDate))
             .filter(order -> order.getStatus() == OrderStatus.COMPLETED || 
                            order.getStatus() == OrderStatus.PAID || 
-                           order.getStatus() == OrderStatus.INVOICED)
+                           order.getStatus() == OrderStatus.INVOICED ||
+                           order.getStatus() == OrderStatus.SHIPPED)
             .collect(Collectors.toList());
 
         BigDecimal total = BigDecimal.ZERO;

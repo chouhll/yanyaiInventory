@@ -338,29 +338,29 @@ export default {
         groupBy: this.groupBy
       };
 
-      const [salesResponse, purchaseResponse] = await Promise.all([
+      const [salesTrend, purchaseTrend] = await Promise.all([
         api.get('/analytics/sales-trend', { params }),
         api.get('/analytics/purchase-trend', { params })
       ]);
 
-      this.salesTrend = salesResponse.data;
-      this.purchaseTrend = purchaseResponse.data;
+      this.salesTrend = salesTrend;
+      this.purchaseTrend = purchaseTrend;
     },
     async loadTurnoverAnalysis() {
       const params = {
         startDate: this.dateRange.startDate,
         endDate: this.dateRange.endDate
       };
-      const response = await api.get('/analytics/inventory-turnover', { params });
-      this.turnoverAnalysis = response.data;
+      const turnoverAnalysis = await api.get('/analytics/inventory-turnover', { params });
+      this.turnoverAnalysis = turnoverAnalysis;
     },
     async loadBusinessDashboard() {
       const params = {
         startDate: this.dateRange.startDate,
         endDate: this.dateRange.endDate
       };
-      const response = await api.get('/analytics/business-dashboard', { params });
-      this.businessDashboard = response.data;
+      const businessDashboard = await api.get('/analytics/business-dashboard', { params });
+      this.businessDashboard = businessDashboard;
     },
     getBarHeight(amount, maxAmount) {
       const minHeight = 20;
