@@ -148,6 +148,185 @@
           </div>
         </el-card>
 
+        <!-- Contract Management -->
+        <el-card v-if="order.status === 'CONTRACT_DRAFT' || canViewContract()" shadow="hover" class="contract-card">
+          <template #header>
+            <div class="card-title">
+              <el-icon><Document /></el-icon>
+              <span>合同管理</span>
+              <el-tag 
+                v-if="order.status === 'CONTRACT_DRAFT'" 
+                type="warning" 
+                effect="dark"
+                size="default"
+                style="margin-left: auto;"
+              >
+                待确认
+              </el-tag>
+              <el-tag 
+                v-else
+                type="success" 
+                size="default"
+                style="margin-left: auto;"
+              >
+                已确认
+              </el-tag>
+            </div>
+          </template>
+          
+          <!-- Contract Preview/Edit Area -->
+          <div class="contract-content">
+            <div class="contract-header">
+              <h3 class="contract-title">销售合同</h3>
+              <div class="contract-meta">
+                <span>合同编号: {{ order.orderNumber || `#${order.id}` }}</span>
+                <span>签订日期: {{ formatDate(order.orderDate) }}</span>
+              </div>
+            </div>
+            
+            <div class="contract-section">
+              <h4 class="section-title">甲方（卖方）</h4>
+              <div class="contract-party">
+                <el-form label-width="100px" size="default">
+                  <el-form-item label="公司名称:">
+                    <el-input 
+                      v-model="contractForm.sellerName" 
+                      :disabled="order.status !== 'CONTRACT_DRAFT'"
+                      placeholder="请输入公司名称"
+                    />
+                  </el-form-item>
+                  <el-form-item label="联系地址:">
+                    <el-input 
+                      v-model="contractForm.sellerAddress" 
+                      :disabled="order.status !== 'CONTRACT_DRAFT'"
+                      placeholder="请输入联系地址"
+                    />
+                  </el-form-item>
+                  <el-form-item label="联系电话:">
+                    <el-input 
+                      v-model="contractForm.sellerPhone" 
+                      :disabled="order.status !== 'CONTRACT_DRAFT'"
+                      placeholder="请输入联系电话"
+                    />
+                  </el-form-item>
+                </el-form>
+              </div>
+            </div>
+            
+            <div class="contract-section">
+              <h4 class="section-title">乙方（买方）</h4>
+              <div class="contract-party">
+                <div class="info-row">
+                  <span class="info-label">公司名称:</span>
+                  <span class="info-value">{{ order.customer?.companyName || order.customer?.name || '-' }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">联系地址:</span>
+                  <span class="info-value">{{ order.customer?.address || '-' }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">联系电话:</span>
+                  <span class="info-value">{{ order.customer?.phone || '-' }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="contract-section">
+              <h4 class="section-title">合同条款</h4>
+              <el-form label-width="120px" size="default">
+                <el-form-item label="交货日期:">
+                  <el-date-picker
+                    v-model="contractForm.deliveryDate"
+                    :disabled="order.status !== 'CONTRACT_DRAFT'"
+                    type="date"
+                    placeholder="选择交货日期"
+                    style="width: 100%;"
+                  />
+                </el-form-item>
+                <el-form-item label="交货地点:">
+                  <el-input 
+                    v-model="contractForm.deliveryAddress" 
+                    :disabled="order.status !== 'CONTRACT_DRAFT'"
+                    placeholder="请输入交货地点"
+                  />
+                </el-form-item>
+                <el-form-item label="付款方式:">
+                  <el-select 
+                    v-model="contractForm.paymentMethod" 
+                    :disabled="order.status !== 'CONTRACT_DRAFT'"
+                    placeholder="选择付款方式"
+                    style="width: 100%;"
+                  >
+                    <el-option label="货到付款" value="COD" />
+                    <el-option label="预付全款" value="PREPAID" />
+                    <el-option label="分期付款" value="INSTALLMENT" />
+                    <el-option label="账期付款" value="CREDIT" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="特殊条款:">
+                  <el-input 
+                    v-model="contractForm.specialTerms" 
+                    :disabled="order.status !== 'CONTRACT_DRAFT'"
+                    type="textarea"
+                    :rows="4"
+                    placeholder="请输入特殊条款或备注"
+                  />
+                </el-form-item>
+              </el-form>
+            </div>
+            
+            <div class="contract-section">
+              <h4 class="section-title">合同商品明细</h4>
+              <el-table 
+                :data="order.items" 
+                border
+                :header-cell-style="{ background: '#f5f7fa', fontWeight: '600' }"
+              >
+                <el-table-column label="商品名称" prop="product.name" min-width="180" />
+                <el-table-column label="数量" prop="quantity" width="100" align="center" />
+                <el-table-column label="单价" width="120" align="right">
+                  <template #default="{ row }">
+                    ¥{{ row.unitPrice?.toFixed(2) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="小计" width="140" align="right">
+                  <template #default="{ row }">
+                    ¥{{ row.subtotal?.toFixed(2) }}
+                  </template>
+                </el-table-column>
+              </el-table>
+              
+              <div class="contract-total">
+                <span class="total-label">合同总额:</span>
+                <span class="total-value">¥{{ orderTotal.toFixed(2) }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Contract Actions -->
+          <div class="contract-actions" v-if="order.status === 'CONTRACT_DRAFT'">
+            <el-button type="primary" size="large" @click="handleSaveContract" :loading="submitting">
+              <el-icon><Check /></el-icon>
+              保存合同
+            </el-button>
+            <el-button type="success" size="large" @click="handleConfirmContract" :loading="submitting">
+              <el-icon><CircleCheck /></el-icon>
+              确认合同并付款
+            </el-button>
+          </div>
+          
+          <div class="contract-actions" v-else>
+            <el-button type="primary" size="large" @click="handleDownloadContract('word')">
+              <el-icon><Download /></el-icon>
+              下载Word合同
+            </el-button>
+            <el-button type="warning" size="large" @click="handleDownloadContract('pdf')">
+              <el-icon><Download /></el-icon>
+              下载PDF合同
+            </el-button>
+          </div>
+        </el-card>
+
         <!-- Invoice Information -->
         <el-card v-if="invoice" shadow="hover" class="invoice-card">
           <template #header>
@@ -492,6 +671,7 @@
         <el-form-item label="新状态" required>
           <el-select v-model="newStatus" placeholder="请选择新状态" size="large" style="width: 100%">
             <el-option label="已创建" value="CREATED" />
+            <el-option label="合同拟定" value="CONTRACT_DRAFT" />
             <el-option label="未付款" value="UNPAID" />
             <el-option label="付款完成" value="PAID" />
             <el-option label="已开票" value="INVOICED" />
@@ -550,8 +730,19 @@ const invoiceForm = ref({
   taxRate: 0.13
 })
 
+const contractForm = ref({
+  sellerName: '烟台智源供应链管理有限公司',
+  sellerAddress: '山东省烟台市芝罘区',
+  sellerPhone: '0535-1234567',
+  deliveryDate: null,
+  deliveryAddress: '',
+  paymentMethod: 'COD',
+  specialTerms: ''
+})
+
 const statusSteps = [
   { value: 'CREATED', label: '已创建' },
+  { value: 'CONTRACT_DRAFT', label: '合同拟定' },
   { value: 'UNPAID', label: '未付款' },
   { value: 'PAID', label: '已付款' },
   { value: 'INVOICED', label: '已开票' },
@@ -652,6 +843,7 @@ const formatDate = (date) => {
 const getStatusType = (status) => {
   const types = {
     'CREATED': 'info',
+    'CONTRACT_DRAFT': 'warning',
     'UNPAID': 'warning',
     'PAID': 'success',
     'INVOICED': 'primary',
@@ -665,6 +857,7 @@ const getStatusType = (status) => {
 const getStatusText = (status) => {
   const texts = {
     'CREATED': '已创建',
+    'CONTRACT_DRAFT': '合同拟定',
     'UNPAID': '未付款',
     'PAID': '已付款',
     'INVOICED': '已开票',
@@ -923,6 +1116,92 @@ const handleConfirmInvoice = async () => {
   }
 }
 
+// 检查是否可以查看合同
+const canViewContract = () => {
+  return ['CONTRACT_DRAFT', 'UNPAID', 'PAID', 'INVOICED', 'SHIPPED', 'COMPLETED'].includes(order.value.status)
+}
+
+// 保存合同
+const handleSaveContract = async () => {
+  if (!contractForm.value.sellerName) {
+    ElMessage.warning('请填写卖方公司名称')
+    return
+  }
+  
+  submitting.value = true
+  try {
+    // TODO: 调用后端API保存合同信息
+    // await contractApi.save(order.value.id, contractForm.value)
+    
+    ElMessage.success('合同保存成功')
+    await loadOrder()
+  } catch (error) {
+    ElMessage.error('保存失败: ' + (error.message || '未知错误'))
+  } finally {
+    submitting.value = false
+  }
+}
+
+// 确认合同并付款
+const handleConfirmContract = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确认合同后将更新订单状态为"已付款"，是否继续？',
+      '确认合同',
+      {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    submitting.value = true
+    
+    // 先保存合同
+    await handleSaveContract()
+    
+    // 更新订单状态为已付款
+    await orderApi.updateStatus(order.value.id, 'PAID')
+    
+    ElMessage.success('合同已确认，订单状态已更新为"已付款"')
+    await loadOrder()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('确认失败: ' + (error.message || '未知错误'))
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+
+// 下载合同
+const handleDownloadContract = async (format) => {
+  try {
+    const { contractApi } = await import('../api')
+    let response
+    
+    if (format === 'word') {
+      response = await contractApi.downloadWord(order.value.id)
+    } else {
+      response = await contractApi.downloadPdf(order.value.id)
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `contract_${order.value.orderNumber || order.value.id}.${format === 'word' ? 'docx' : 'pdf'}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success(`合同${format === 'word' ? 'Word' : 'PDF'}下载成功`)
+  } catch (error) {
+    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
+  }
+}
+
 const handleVoidInvoice = async () => {
   try {
     const result = await ElMessageBox.prompt('请输入作废原因', '作废发票', {
@@ -952,6 +1231,11 @@ onMounted(async () => {
   await loadInvoice()
   loadProducts()
   loadCustomers()
+  
+  // 初始化合同表单默认值
+  if (order.value.customer) {
+    contractForm.value.deliveryAddress = order.value.customer.address || ''
+  }
 })
 </script>
 
@@ -1242,6 +1526,100 @@ onMounted(async () => {
   gap: 12px;
 }
 
+/* Contract Card Styles */
+.contract-card {
+  margin-bottom: 20px;
+  border-radius: 8px;
+}
+
+.contract-content {
+  padding: 20px;
+  background: #fafbfc;
+  border-radius: 8px;
+}
+
+.contract-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e4e7ed;
+}
+
+.contract-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #303133;
+  margin: 0 0 12px 0;
+}
+
+.contract-meta {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.contract-section {
+  margin: 25px 0;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.contract-section .section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #409eff;
+}
+
+.contract-party {
+  padding: 10px 0;
+}
+
+.contract-party .info-row {
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+}
+
+.contract-total {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 20px;
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(to right, #fff3e0, #ffffff);
+  border-radius: 8px;
+  border: 2px dashed #ff9800;
+}
+
+.contract-total .total-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #606266;
+}
+
+.contract-total .total-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ff9800;
+}
+
+.contract-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 2px solid #e4e7ed;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .page-header {
@@ -1259,6 +1637,19 @@ onMounted(async () => {
   .header-actions {
     width: 100%;
     flex-direction: column;
+  }
+  
+  .contract-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .contract-actions {
+    flex-direction: column;
+  }
+  
+  .contract-actions .el-button {
+    width: 100%;
   }
 }
 </style>
