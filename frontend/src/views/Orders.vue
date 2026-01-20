@@ -95,18 +95,33 @@
         </el-table-column>
 
         <!-- 操作列 -->
-        <el-table-column label="操作" width="300" fixed="right" align="center">
+        <el-table-column label="操作" width="320" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button 
-                v-if="canViewContract(row)"
-                type="warning" 
-                size="small" 
-                @click="viewContract(row)"
-              >
-                <el-icon><Document /></el-icon>
-                合同
-              </el-button>
+              <!-- 合同拟定状态：显示合同下载和确认按钮 -->
+              <template v-if="row.status === 'CONTRACT_DRAFT'">
+                <el-dropdown @command="(cmd) => handleContractAction(row, cmd)">
+                  <el-button type="warning" size="small">
+                    <el-icon><Document /></el-icon>
+                    合同 <el-icon class="el-icon--right"><arrow-down /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="word">
+                        <el-icon><Download /></el-icon> 下载Word
+                      </el-dropdown-item>
+                      <el-dropdown-item command="pdf">
+                        <el-icon><Download /></el-icon> 下载PDF
+                      </el-dropdown-item>
+                      <el-dropdown-item command="confirm" divided>
+                        <el-icon><Check /></el-icon> 确认合同
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </template>
+              
+              <!-- 已付款/已开票状态：显示出库按钮 -->
               <el-button 
                 v-if="canShipOrder(row)"
                 type="success" 
@@ -117,14 +132,25 @@
                 <el-icon><Sell /></el-icon>
                 出库
               </el-button>
-              <el-button 
-                type="primary" 
-                size="small" 
-                @click="showStatusDialog(row)"
-                plain
-              >
-                状态
-              </el-button>
+              
+              <!-- 其他状态可以查看合同 -->
+              <el-dropdown v-if="canViewContract(row) && row.status !== 'CONTRACT_DRAFT'" @command="(cmd) => handleContractAction(row, cmd)">
+                <el-button type="info" size="small" plain>
+                  <el-icon><Document /></el-icon>
+                  查看合同
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="word">
+                      <el-icon><Download /></el-icon> 下载Word
+                    </el-dropdown-item>
+                    <el-dropdown-item command="pdf">
+                      <el-icon><Download /></el-icon> 下载PDF
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              
               <el-button 
                 type="danger" 
                 size="small" 
@@ -301,6 +327,9 @@
           <el-select v-model="newStatus" placeholder="请选择新状态" size="large" style="width: 100%">
             <el-option label="已创建" value="CREATED">
               <el-tag type="info" size="small">已创建</el-tag>
+            </el-option>
+            <el-option label="合同拟定" value="CONTRACT_DRAFT">
+              <el-tag type="warning" size="small">合同拟定</el-tag>
             </el-option>
             <el-option label="未付款" value="UNPAID">
               <el-tag type="warning" size="small">未付款</el-tag>
@@ -581,40 +610,14 @@ const handleShipOrder = async (row) => {
   }
 }
 
-// 查看合同
-const viewContract = async (row) => {
-  try {
-    ElMessageBox.alert(
-      `<div style="text-align: center;">
-        <p style="font-size: 16px; margin-bottom: 20px;">请选择合同操作</p>
-        <div style="display: flex; gap: 12px; justify-content: center;">
-          <button id="download-word" style="padding: 10px 20px; background: #67C23A; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            下载 Word
-          </button>
-          <button id="download-pdf" style="padding: 10px 20px; background: #E6A23C; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            下载 PDF
-          </button>
-          <button id="confirm-contract" style="padding: 10px 20px; background: #409EFF; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            确认合同
-          </button>
-        </div>
-      </div>`,
-      `订单合同 - ${row.orderNumber || '#' + row.id}`,
-      {
-        dangerouslyUseHTMLString: true,
-        confirmButtonText: '关闭',
-        callback: () => {}
-      }
-    )
-    
-    // 添加按钮事件监听
-    setTimeout(() => {
-      document.getElementById('download-word')?.addEventListener('click', () => downloadContract(row.id, 'word'))
-      document.getElementById('download-pdf')?.addEventListener('click', () => downloadContract(row.id, 'pdf'))
-      document.getElementById('confirm-contract')?.addEventListener('click', () => confirmContract(row.id))
-    }, 100)
-  } catch (error) {
-    console.error('合同操作失败:', error)
+// 统一处理合同操作
+const handleContractAction = async (row, command) => {
+  if (command === 'word') {
+    await downloadContract(row.id, 'word')
+  } else if (command === 'pdf') {
+    await downloadContract(row.id, 'pdf')
+  } else if (command === 'confirm') {
+    await confirmContract(row.id)
   }
 }
 
