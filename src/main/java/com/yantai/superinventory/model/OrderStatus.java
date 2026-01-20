@@ -2,6 +2,7 @@ package com.yantai.superinventory.model;
 
 public enum OrderStatus {
     CREATED,        // 已创建/下单
+    CONTRACT_DRAFT, // 合同拟定中
     UNPAID,         // 未付款
     PAID,           // 付款完成
     PENDING_STOCK,  // 待备货（库存不足）

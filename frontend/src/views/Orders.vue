@@ -95,16 +95,35 @@
         </el-table-column>
 
         <!-- 操作列 -->
-        <el-table-column label="操作" width="180" fixed="right" align="center">
+        <el-table-column label="操作" width="300" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
+              <el-button 
+                v-if="canViewContract(row)"
+                type="warning" 
+                size="small" 
+                @click="viewContract(row)"
+              >
+                <el-icon><Document /></el-icon>
+                合同
+              </el-button>
+              <el-button 
+                v-if="canShipOrder(row)"
+                type="success" 
+                size="small" 
+                @click="handleShipOrder(row)"
+                :loading="submitting"
+              >
+                <el-icon><Sell /></el-icon>
+                出库
+              </el-button>
               <el-button 
                 type="primary" 
                 size="small" 
                 @click="showStatusDialog(row)"
                 plain
               >
-                更新状态
+                状态
               </el-button>
               <el-button 
                 type="danger" 
@@ -494,8 +513,10 @@ const formatDate = (date) => {
 const getStatusType = (status) => {
   const types = {
     'CREATED': 'info',
+    'CONTRACT_DRAFT': 'warning',
     'UNPAID': 'warning',
     'PAID': 'success',
+    'PENDING_STOCK': 'warning',
     'INVOICED': 'primary',
     'SHIPPED': '',
     'COMPLETED': 'success',
@@ -507,14 +528,134 @@ const getStatusType = (status) => {
 const getStatusText = (status) => {
   const texts = {
     'CREATED': '已创建',
+    'CONTRACT_DRAFT': '合同拟定',
     'UNPAID': '未付款',
     'PAID': '已付款',
+    'PENDING_STOCK': '待备货',
     'INVOICED': '已开票',
     'SHIPPED': '已发货',
     'COMPLETED': '已完成',
     'CANCELLED': '已取消'
   }
   return texts[status] || status
+}
+
+// 检查是否可以查看合同
+const canViewContract = (order) => {
+  return ['CONTRACT_DRAFT', 'UNPAID', 'PAID', 'INVOICED', 'SHIPPED', 'COMPLETED'].includes(order.status)
+}
+
+// 检查订单是否可以出库
+const canShipOrder = (order) => {
+  return ['PAID', 'INVOICED', 'PENDING_STOCK'].includes(order.status)
+}
+
+// 出库操作
+const handleShipOrder = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要将订单 ${row.orderNumber || '#' + row.id} 标记为已发货吗？\n系统将验证库存并扣减相应数量。`,
+      '出库确认',
+      {
+        confirmButtonText: '确认出库',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    submitting.value = true
+    await orderApi.shipOrder(row.id)
+    ElMessage.success('订单已成功出库！库存已扣减。')
+    loadOrders()
+  } catch (error) {
+    if (error !== 'cancel') {
+      const errorMsg = error.response?.data?.message || error.message || '出库失败'
+      ElMessage.error({
+        message: errorMsg,
+        duration: 5000,
+        showClose: true
+      })
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+
+// 查看合同
+const viewContract = async (row) => {
+  try {
+    ElMessageBox.alert(
+      `<div style="text-align: center;">
+        <p style="font-size: 16px; margin-bottom: 20px;">请选择合同操作</p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button id="download-word" style="padding: 10px 20px; background: #67C23A; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            下载 Word
+          </button>
+          <button id="download-pdf" style="padding: 10px 20px; background: #E6A23C; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            下载 PDF
+          </button>
+          <button id="confirm-contract" style="padding: 10px 20px; background: #409EFF; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            确认合同
+          </button>
+        </div>
+      </div>`,
+      `订单合同 - ${row.orderNumber || '#' + row.id}`,
+      {
+        dangerouslyUseHTMLString: true,
+        confirmButtonText: '关闭',
+        callback: () => {}
+      }
+    )
+    
+    // 添加按钮事件监听
+    setTimeout(() => {
+      document.getElementById('download-word')?.addEventListener('click', () => downloadContract(row.id, 'word'))
+      document.getElementById('download-pdf')?.addEventListener('click', () => downloadContract(row.id, 'pdf'))
+      document.getElementById('confirm-contract')?.addEventListener('click', () => confirmContract(row.id))
+    }, 100)
+  } catch (error) {
+    console.error('合同操作失败:', error)
+  }
+}
+
+// 下载合同
+const downloadContract = async (orderId, format) => {
+  try {
+    const { contractApi } = await import('../api')
+    let response
+    
+    if (format === 'word') {
+      response = await contractApi.downloadWord(orderId)
+    } else {
+      response = await contractApi.downloadPdf(orderId)
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `contract_${orderId}.${format === 'word' ? 'docx' : 'pdf'}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success(`合同${format === 'word' ? 'Word' : 'PDF'}下载成功`)
+  } catch (error) {
+    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 确认合同
+const confirmContract = async (orderId) => {
+  try {
+    const { contractApi } = await import('../api')
+    await contractApi.confirm(orderId)
+    ElMessage.success('合同已确认')
+    loadOrders()
+  } catch (error) {
+    ElMessage.error('确认失败: ' + (error.message || '未知错误'))
+  }
 }
 
 onMounted(() => {

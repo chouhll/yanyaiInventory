@@ -72,7 +72,31 @@ export const orderApi = {
   create: (data) => api.post('/orders', data),
   update: (id, data) => api.put(`/orders/${id}`, data),
   updateStatus: (id, status) => api.patch(`/orders/${id}/status?status=${status}`),
+  shipOrder: (id) => api.post(`/orders/${id}/ship`),
+  checkStock: (id) => api.get(`/orders/${id}/check-stock`),
   delete: (id) => api.delete(`/orders/${id}`)
+}
+
+// 合同相关API
+export const contractApi = {
+  generate: (orderId) => api.post(`/contracts/generate/${orderId}`),
+  getByOrderId: (orderId) => api.get(`/contracts/order/${orderId}`),
+  preview: (orderId) => api.get(`/contracts/preview/${orderId}`),
+  downloadWord: (orderId) => {
+    return fetch(`${api.defaults.baseURL}/contracts/download/word/${orderId}`, {
+      headers: {
+        'Authorization': `Bearer ${authApi.getToken()}`
+      }
+    })
+  },
+  downloadPdf: (orderId) => {
+    return fetch(`${api.defaults.baseURL}/contracts/download/pdf/${orderId}`, {
+      headers: {
+        'Authorization': `Bearer ${authApi.getToken()}`
+      }
+    })
+  },
+  confirm: (orderId) => api.post(`/contracts/confirm/${orderId}`)
 }
 
 // 客户相关API

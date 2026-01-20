@@ -63,20 +63,11 @@ public class OrderService {
             item.setOrder(order); // 确保订单项关联订单
         }
         
-        // 根据库存情况设置订单状态
-        if (hasStockShortage) {
-            // 库存不足，设置为待备货状态
-            order.setStatus(OrderStatus.PENDING_STOCK);
-            Order savedOrder = orderRepository.save(order);
-            
-            // 抛出异常，提示库存不足（前端会捕获并显示）
-            throw new RuntimeException("订单已创建，但库存不足，状态为待备货。" + stockMessage.toString());
-        } else {
-            // 库存充足，设置为已付款状态（但不扣减库存）
-            order.setStatus(OrderStatus.PAID);
-            Order savedOrder = orderRepository.save(order);
-            return savedOrder;
-        }
+        // 创建订单时设置为合同拟定中状态
+        // 不再立即检查库存，等待合同确认和付款后再进行后续流程
+        order.setStatus(OrderStatus.CONTRACT_DRAFT);
+        Order savedOrder = orderRepository.save(order);
+        return savedOrder;
     }
 
     @Transactional
