@@ -1,0 +1,26 @@
+---
+applications:
+- name: superinventory-backend
+  memory: 1G
+  instances: 1
+  path: target/superinventory-0.0.1-SNAPSHOT.jar
+  buildpacks:
+    - java_buildpack
+  services:
+    - superinventory-db
+  env:
+    SPRING_PROFILES_ACTIVE: cloud
+    JBP_CONFIG_OPEN_JDK_JRE: '{ jre: { version: 21.+ } }'
+  routes:
+    - route: superinventory-backend.cfapps.us10-001.hana.ondemand.com
+
+- name: superinventory-frontend
+  memory: 256M
+  instances: 1
+  path: frontend
+  buildpacks:
+    - staticfile_buildpack
+  env:
+    FORCE_HTTPS: true
+  routes:
+    - route: superinventory.cfapps.us10-001.hana.ondemand.com

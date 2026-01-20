@@ -1,0 +1,200 @@
+# Cline Rules for SuperInventory Project
+
+## 🎯 当前任务：微信扫码登录实现（方案2）
+
+### 任务概述
+实现基于微信公众号OAuth的二维码扫码登录功能，支持PC端浏览器通过扫码完成登录。
+
+### 技术方案
+使用自定义二维码 + 长轮询机制：
+1. PC端生成包含唯一state的二维码
+2. 用户微信扫码打开授权页面
+3. PC端长轮询检查登录状态
+4. 授权成功后PC端自动登录
+
+---
+
+## 📋 实现清单
+
+### Phase 1: 后端改造
+- [x] 1.1 创建QRCodeState实体类
+  - 包含：state、status、token、createTime、expireTime
+  - 状态：pending、success、expired
+
+- [x] 1.2 添加QRCode管理服务
+  - 生成唯一state（UUID）
+  - 存储state状态（ConcurrentHashMap）
+  - 检查state状态
+  - 清理过期state（定时任务）
+
+- [x] 1.3 添加AuthController新端点
+  - GET /auth/qrcode/generate - 生成二维码数据
+  - GET /auth/qrcode/check - 检查登录状态
+  - 返回格式：{state, authUrl, expiresIn}
+
+- [x] 1.4 修改OAuth回调处理
+  - 识别二维码登录请求
+  - 更新state状态为success
+  - 保存token到state
+  - 返回"登录成功"提示页面
+
+- [x] 1.5 添加安全机制
+  - State 5分钟过期
+  - 定时清理过期state（每分钟）
+  - State使用一次后删除
+
+### Phase 2: 前端改造
+- [x] 2.1 安装依赖
+  - npm install qrcode
+
+- [x] 2.2 修改auth.js API
+  - generateQRCode() - 生成二维码
+  - checkQRCodeStatus(state) - 检查状态
+
+- [x] 2.3 改造Login.vue
+  - 添加二维码显示区域
+  - 实现生成二维码逻辑
+  - 实现长轮询（每2秒）
+  - 添加过期刷新功能
+  - 添加loading状态
+  - 优化UI展示
+
+- [x] 2.4 优化用户体验
+  - 显示倒计时
+  - 二维码过期提示
+  - 刷新按钮
+  - 扫码成功提示
+
+### Phase 3: 测试与部署
+- [ ] 3.1 本地测试
+  - PC端生成二维码
+  - 手机微信扫码
+  - 验证登录流程
+  - 测试过期场景
+
+- [ ] 3.2 部署到BTP
+  - 构建后端JAR
+  - 部署后端服务
+  - 构建前端dist
+  - 部署前端服务
+
+- [ ] 3.3 生产环境测试
+  - 完整流程测试
+  - 多用户并发测试
+  - 异常场景测试
+
+### Phase 4: 文档更新
+- [ ] 4.1 更新WECHAT_AUTH_TEST_GUIDE.md
+  - 添加扫码登录说明
+  - 更新测试步骤
+
+- [ ] 4.2 更新FEATURE_GAP_ANALYSIS.md
+  - 标记扫码登录功能已完成
+
+---
+
+## 🔧 技术细节
+
+### 后端数据结构
+
+```java
+public class QRCodeState {
+    private String state;           // UUID
+    private String status;          // pending/success/expired
+    private String token;           // JWT Token
+    private LocalDateTime createTime;
+    private LocalDateTime expireTime;
+}
+```
+
+### 前端轮询逻辑
+
+```javascript
+const pollLoginStatus = async (state) => {
+  const maxAttempts = 150  // 5分钟 = 150次 * 2秒
+  let attempts = 0
+  
+  const interval = setInterval(async () => {
+    attempts++
+    
+    const result = await authApi.checkQRCodeStatus(state)
+    
+    if (result.status === 'success') {
+      clearInterval(interval)
+      // 登录成功处理
+    } else if (result.status === 'expired' || attempts >= maxAttempts) {
+      clearInterval(interval)
+      // 过期处理
+    }
+  }, 2000)
+}
+```
+
+### 安全机制
+
+1. **State过期**：5分钟自动过期
+2. **一次性使用**：登录成功后立即删除state
+3. **定时清理**：每分钟清理过期state
+4. **限流保护**：TODO（可选）
+
+---
+
+## 📝 开发规范
+
+### 命名规范
+- 类名：QRCodeState, QRCodeService
+- 方法名：generateQRCode, checkQRCodeStatus
+- 端点：/auth/qrcode/*
+- 变量名：qrcodeState, authUrl
+
+### 错误处理
+- 所有API调用必须有try-catch
+- 用户友好的错误提示（中文）
+- 后端返回标准错误格式
+
+### 日志记录
+- 二维码生成：记录state
+- 状态检查：记录轮询次数
+- 登录成功：记录用户信息
+- 异常情况：详细错误日志
+
+---
+
+## ✅ 完成标准
+
+每个步骤完成后必须：
+1. 标记为 [x] 已完成
+2. 代码已编写并测试通过
+3. 无明显bug或错误
+4. 符合开发规范
+
+任务完全完成标准：
+1. 所有清单项标记为完成
+2. 本地测试通过
+3. BTP部署成功
+4. 生产环境验证通过
+5. 文档已更新
+
+---
+
+## 🎯 当前进度
+
+**Phase 1: 后端改造** - ✅ 已完成
+**Phase 2: 前端改造** - ✅ 已完成
+**Phase 3: 测试与部署** - ⏳ 准备开始
+**Phase 4: 文档更新** - ⏸️ 等待部署完成
+
+---
+
+## 📞 注意事项
+
+1. 二维码URL必须是完整的OAuth授权URL
+2. State必须在授权URL中作为参数传递
+3. 轮询间隔不要太短（建议2秒）
+4. 二维码过期时间不要太长（建议5分钟）
+5. 记得清理过期的state，避免内存泄漏
+
+---
+
+*最后更新：2026-01-18 13:26*
+*任务状态：Phase 1和2完成，准备测试和部署*
